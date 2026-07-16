@@ -502,12 +502,15 @@ function Editor({ song, onSave, onCancel }) {
           <input value={key} onChange={(e) => setKey(e.target.value)} placeholder="z. B. G" />
         </label>
         <label className="field field-small">
-            type="number"
-            min={0}
-            step={0.5}
-            value={scrollDelay}
-            onChange={(e) => setScrollDelay(e.target.value)}
-            placeholder="0"
+          <span>Verzögerung</span>
+          <input
+              type="number"
+              min={0}
+              step={0.5}
+              value={scrollDelay}
+              onChange={(e) => setScrollDelay(e.target.value)}
+              placeholder="0"
+          />
         </label>
       </div>
 
@@ -802,19 +805,18 @@ function Performer({ song, onBack, onEdit, onSaveSpeed }) {
           >
             {tempoSaved ? "Gemerkt ✓" : "Tempo merken"}
           </button>
+          <button
+            className="pedal-small"
+            title="Zum Anfang"
+            onClick={() => {
+              if (scrollRef.current) scrollRef.current.scrollTop = 0;
+              scrollPosRef.current = 0;
+              setPlaying(false);
+            }}
+          >
+            <RotateCcw size={16} />
+          </button>
         </div>
-
-        <button
-          className="pedal-small"
-          title="Zum Anfang"
-          onClick={() => {
-            if (scrollRef.current) scrollRef.current.scrollTop = 0;
-            scrollPosRef.current = 0;
-            setPlaying(false);
-          }}
-        >
-          <RotateCcw size={16} />
-        </button>
       </div>
       <button className="back-link" onClick={onBack}>
         <ArrowLeft size={14} /> zur Bibliothek
