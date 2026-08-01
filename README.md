@@ -20,17 +20,18 @@ If you are developing a production application, we recommend using TypeScript wi
 
 ## Milestones
 
-# v0.7
+### v0.7
 - Anbindung *Supabase*, Songs werden in der Cloud gespeichert
 - User-Login für einen Single-User
 
-# v0.8
+### v0.8
 - Multi-User Login
+### v0.81
 - Favoriten (eigenes Songbook)
 - individuelle Einstellungen für Tempo pro Song
 
-# v0.9
+### v0.9
 - Mobile-Modus
 
-# v1.0
+### v1.0
 - Ausdrucken der Songs

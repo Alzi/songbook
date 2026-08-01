@@ -1,9 +1,18 @@
 /*
-Version: 0.7
+Version: 0.8
 */
 import "./App.css";
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { Music, Plus, ArrowLeft, Pencil, Trash2, Play, Pause, ChevronUp, ChevronDown, RotateCcw, Upload } from "lucide-react";
+import { createClient } from "@supabase/supabase-js";
+import { Music, Plus, ArrowLeft, Pencil, Trash2, Play, Pause, ChevronUp, ChevronDown, RotateCcw, Upload, LogOut } from "lucide-react";
+
+/* ---------------------------------------------------------------
+   Supabase-Client (Browser, anon key + RLS statt service_role)
+--------------------------------------------------------------- */
+const supabase = createClient(
+  import.meta.env.VITE_SUPABASE_URL,
+  import.meta.env.VITE_SUPABASE_ANON_KEY
+);
 
 /* ---------------------------------------------------------------
    Musik-Hilfsfunktionen: Akkorde erkennen & transponieren
@@ -227,7 +236,6 @@ function parseImportedChordText(raw) {
    Beispiel-Song
 --------------------------------------------------------------- */
 const DEMO_SONG = {
-  id: "friend",
   title: "You've got a friend",
   artist: "Carole King",
   key: "G",
@@ -281,102 +289,74 @@ You've got a [G]friend.`,
 };
 
 /* ---------------------------------------------------------------
-   Persistenz
+   Persistenz: direkter Supabase-Zugriff (anon key + RLS),
+   je Operation ein atomarer Request statt "alles löschen, alles
+   neu einfügen".
 --------------------------------------------------------------- */
-// // Läuft die App in einem Claude-Artefakt (window.storage vorhanden) oder
-// // lokal im normalen Browser? Im lokalen Fall wird stattdessen localStorage genutzt.
-
-// const hasCloudStorage = typeof window !== "undefined" && !!window.storage;
-// async function loadSongs() {
-//   try {
-//     if (hasCloudStorage) {
-//       const res = await window.storage.get("songbook:songs", false);
-//       if (res && res.value) return JSON.parse(res.value);
-//     } else if (typeof window !== "undefined") {
-//       const raw = window.localStorage.getItem("songbook:songs");
-//       if (raw) return JSON.parse(raw);
-//     }
-//   } catch (e) {
-//     /* noch keine Daten vorhanden */
-//   }
-//   return null;
-// }
-// async function saveSongs(songs) {
-//   try {
-//     if (hasCloudStorage) {
-//       await window.storage.set("songbook:songs", JSON.stringify(songs), false);
-//     } else if (typeof window !== "undefined") {
-//       window.localStorage.setItem("songbook:songs", JSON.stringify(songs));
-//     }
-//   } catch (e) {
-//     console.error("Speichern fehlgeschlagen", e);
-//   }
-// }
-
-const APP_PW_KEY = "songbook:pw";
-const getStoredPassword = () => sessionStorage.getItem(APP_PW_KEY) || "";
-
-async function apiRequest(method, body) {
-  const res = await fetch("/api/songs", {
-    method,
-    headers: { "Content-Type": "application/json", "x-app-password": getStoredPassword() },
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  if (res.status === 401) {
-    sessionStorage.removeItem(APP_PW_KEY);
-    throw new Error("Falsches Passwort");
-  }
-  if (!res.ok) throw new Error("Serverfehler");
-  return res.status === 204 ? null : res.json();
-}
-
 async function loadSongs() {
-  try {
-    return await apiRequest("GET");
-  } catch (e) {
-    console.error("Laden fehlgeschlagen", e);
+  const { data, error } = await supabase.from("songs").select("*").order("created_at");
+  if (error) {
+    console.error("Laden fehlgeschlagen", error);
     return null;
   }
+  return data;
 }
 
-async function saveSongs(songs) {
-  try {
-    await apiRequest("PUT", songs);
-  } catch (e) {
-    console.error("Speichern fehlgeschlagen", e);
-  }
+async function insertSong(song) {
+  // id/created_at überlässt du der DB (gen_random_uuid() / default now())
+  const { id, ...rest } = song;
+  const { data, error } = await supabase.from("songs").insert(rest).select().single();
+  if (error) throw error;
+  return data;
+}
+
+async function updateSong(id, patch) {
+  const { data, error } = await supabase.from("songs").update(patch).eq("id", id).select().single();
+  if (error) throw error;
+  return data;
+}
+
+async function deleteSongRemote(id) {
+  const { error } = await supabase.from("songs").delete().eq("id", id);
+  if (error) throw error;
 }
 
 /* ---------------------------------------------------------------
    App
 --------------------------------------------------------------- */
 export default function Songbook() {
+  const [session, setSession] = useState(undefined); // undefined = wird geprüft, null = ausgeloggt
   const [songs, setSongs] = useState(null); // null = wird geladen
   const [view, setView] = useState("library"); // library | edit | perform | import
   const [currentId, setCurrentId] = useState(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const [importDraft, setImportDraft] = useState(null); // frisch importierter, noch nicht gespeicherter Song
 
+  // Login-Status prüfen & auf Änderungen (Login/Logout) reagieren
   useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => setSession(data.session));
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, sess) => {
+      setSession(sess);
+      if (!sess) setSongs(null); // beim Ausloggen Songliste zurücksetzen
+    });
+    return () => sub.subscription.unsubscribe();
+  }, []);
+
+  // Sobald eingeloggt: Songs laden (und beim allerersten Mal einen Demo-Song anlegen)
+  useEffect(() => {
+    if (!session) return;
     (async () => {
-      if (!getStoredPassword()) {
-        const pw = window.prompt("Passwort für die Songbook-App:");
-        if (pw) sessionStorage.setItem(APP_PW_KEY, pw);
-      }
       const loaded = await loadSongs();
       if (loaded && loaded.length) {
         setSongs(loaded);
+      } else if (loaded) {
+        const created = await insertSong(DEMO_SONG);
+        setSongs([created]);
       } else {
-        setSongs([DEMO_SONG]);
-        saveSongs([DEMO_SONG]);
+        setSongs([]);
       }
     })();
-  }, []);
-
-  const persist = useCallback((next) => {
-    setSongs(next);
-    saveSongs(next);
-  }, []);
+  }, [session]);
 
   const currentSong = songs?.find((s) => s.id === currentId) || null;
 
@@ -408,24 +388,69 @@ export default function Songbook() {
     setCurrentId(null);
     setImportDraft(null);
   }
-  function handleSave(song) {
-    let next;
-    if (song.id) {
-      next = songs.map((s) => (s.id === song.id ? song : s));
-    } else {
-      const withId = { ...song, id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6) };
-      next = [...songs, withId];
+  async function handleSave(song) {
+    try {
+      if (song.id) {
+        const { id, ...patch } = song;
+        const updated = await updateSong(id, patch);
+        setSongs((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
+      } else {
+        const { id, ...rest } = song;
+        const created = await insertSong(rest);
+        setSongs((prev) => [...prev, created]);
+      }
+      setImportDraft(null);
+      setView("library");
+    } catch (e) {
+      console.error("Speichern fehlgeschlagen", e);
+      window.alert("Speichern ist fehlgeschlagen. Bitte erneut versuchen.");
     }
-    persist(next);
-    setImportDraft(null);
-    setView("library");
   }
-  function handleDelete(id) {
-    persist(songs.filter((s) => s.id !== id));
-    setConfirmDeleteId(null);
+  async function handleDelete(id) {
+    try {
+      await deleteSongRemote(id);
+      setSongs((prev) => prev.filter((s) => s.id !== id));
+    } catch (e) {
+      console.error("Löschen fehlgeschlagen", e);
+      window.alert("Löschen ist fehlgeschlagen. Bitte erneut versuchen.");
+    } finally {
+      setConfirmDeleteId(null);
+    }
   }
-  function updateSongMeta(id, patch) {
-    persist(songs.map((s) => (s.id === id ? { ...s, ...patch } : s)));
+  async function updateSongMeta(id, patch) {
+    // optimistisch lokal aktualisieren, damit z. B. "Tempo merken" sofort reagiert
+    setSongs((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)));
+    try {
+      await updateSong(id, patch);
+    } catch (e) {
+      console.error("Aktualisieren fehlgeschlagen", e);
+    }
+  }
+  async function handleLogout() {
+    await supabase.auth.signOut();
+    backToLibrary();
+  }
+
+  if (session === undefined) {
+    return (
+      <div className="sb-root">
+        <div className="sb-loading">Lade …</div>
+      </div>
+    );
+  }
+
+  if (session === null) {
+    return (
+      <div className="sb-root">
+        <header className="sb-header">
+          <div className="sb-brand">
+            <Music size={20} strokeWidth={2} />
+            <span>Songbook</span>
+          </div>
+        </header>
+        <Login />
+      </div>
+    );
   }
 
   return (
@@ -435,9 +460,13 @@ export default function Songbook() {
           <Music size={20} strokeWidth={2} />
           <span>Songbook</span>
         </div>
-        {view !== "library" && (
+        {view !== "library" ? (
           <button className="btn-ghost" onClick={backToLibrary}>
             <ArrowLeft size={16} /> Bibliothek
+          </button>
+        ) : (
+          <button className="btn-ghost" onClick={handleLogout}>
+            <LogOut size={16} /> Abmelden
           </button>
         )}
       </header>
@@ -474,6 +503,56 @@ export default function Songbook() {
 }
 
 /* ---------------------------------------------------------------
+   Login
+--------------------------------------------------------------- */
+function Login() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function handleLogin(e) {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    setLoading(false);
+    if (error) setError("E-Mail oder Passwort falsch.");
+  }
+
+  return (
+    <form className="sb-editor" onSubmit={handleLogin}>
+      <label className="field">
+        <span>E-Mail</span>
+        <input
+          type="email"
+          autoComplete="username"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
+      </label>
+      <label className="field">
+        <span>Passwort</span>
+        <input
+          type="password"
+          autoComplete="current-password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
+      </label>
+
+      {error && <div className="import-error">{error}</div>}
+
+      <div className="editor-actions">
+        <button type="submit" className="btn-gold" disabled={loading}>
+          {loading ? "Anmelden …" : "Anmelden"}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+/* ---------------------------------------------------------------
    Bibliothek
 --------------------------------------------------------------- */
 function Library({ songs, onNew, onImport, onOpen, onEdit, confirmDeleteId, setConfirmDeleteId, onDelete }) {
@@ -494,7 +573,7 @@ function Library({ songs, onNew, onImport, onOpen, onEdit, confirmDeleteId, setC
         </div>
       </div>
 
-      {songs.length === 0 && <div className="sb-empty">Noch keine Songs. Leg los mit „Neuer Song“.</div>}
+      {songs.length === 0 && <div className="sb-empty">Noch keine Songs. Leg los mit „Neuer Song".</div>}
 
       <div className="sb-grid">
         {songs.map((s) => (
