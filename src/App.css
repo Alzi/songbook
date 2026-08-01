@@ -24,7 +24,7 @@ html, body, #root {
   /* Zum Experimentieren: Faktor für Schrift auf schmalen Bildschirmen.
      1 = wie Desktop, kleiner = kompakter. Wird unten in der
      @media-Regel auf .lyric-line/.chord-line angewendet. */
-  --mobile-font-scale: 1.3;
+  --mobile-font-scale: 1.2;
   background: var(--bg);
   color: var(--text);
   min-height: 95%;
@@ -34,6 +34,7 @@ html, body, #root {
   display: flex;
   flex-direction: column;
   gap: 16px;
+  overflow: overlay;
 }
 
 .sb-header {
@@ -407,9 +408,9 @@ button {
   color: var(--teal);
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  font-size: 0.75rem;
+  font-size: 1.1rem;
   font-weight: 700;
-  margin: 14px 0 8px;
+  margin: 2rem 0 1rem;
 }
 
 .scroll-end-space {
