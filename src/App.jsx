@@ -1,5 +1,5 @@
 /*
-Version: 0.61
+Version: 0.7
 */
 import "./App.css";
 import React, { useState, useEffect, useRef, useCallback } from "react";
@@ -224,60 +224,124 @@ function parseImportedChordText(raw) {
 }
 
 /* ---------------------------------------------------------------
-   Beispiel-Song (eigene, unverfängliche Demo-Strophen)
+   Beispiel-Song
 --------------------------------------------------------------- */
 const DEMO_SONG = {
-  id: "demo",
-  title: "Leiser Morgen",
-  artist: "Beispielsong",
+  id: "friend",
+  title: "You've got a friend",
+  artist: "Carole King",
   key: "G",
-  body: `## Strophe 1
-[G]Der Morgen kommt so [D]leise über die Stadt
-[Em]Kaffee in der [C]Hand, der Tag hat noch [G]nichts gehabt
-[G]Ich schnür die Schuh und [D]geh hinaus
-[Em]vielleicht wird heut ein [C]guter [D]Tag draus
+  body: `## Intro
+[G/C] [C] [D] [Gsus4] [G] [F#m7] [B7]
 
-## Refrain
-[C]Halt mich fest, [G]lass mich nicht [D]los
-[Em]dreh die Welt ein [C]bisschen [G]groß
-[C]Halt mich fest, [G]irgendwie [D]weiß ich schon
-[Em]heute wird ein [C]guter [D]Ton
+## Verse1
+When you're [Em]down and [B7]troubled and you [Em]need some [B7]loving [Em]care,
+and [Am7]nothing, oh, [D7sus4]nothing is going [G]right, [Gsus4] [G]
+[F#m7]close your eyes and [B7]think of me and [Em]soon I [B7]will be [Em]there [Em7]
+to [Am7]brighten up, woah [B7]even your darkest night. [D7sus4] [D7] [Dsus2] [D7]
 
-## Strophe 2
-[G]Die Gitarre wartet [D]schon so lang
-[Em]greif in die Saiten, [C]such den ersten [G]Klang
-[G]Und was auch immer [D]heut passiert
-[Em]diese Zeile [C]hier wird gut [D]transponiert`,
+## Chorus
+Your just [G]call out my [Gmaj7]name, and you [C]know wherever I [Am7]am,
+I'll come [G]running [Gmaj7] to see you again [D7sus4] [D7] [Dsus2] [D7]
+[G]Winter, spring summer or [Gmaj7]fall, [C]all you got to do is [Em]call
+and I'll [C]be there, [Bm7]yeah, [Am7]yeah, yeah. [D7sus4]
+You've got a [G]friend
+
+## Zwischenspiel
+[G/C] [C] [D] [Gsus4] [G] [F#m7] [B7]
+
+## Verse 2
+If the [Em]sky [B7]above you should grow [Em]dark and [B7]full of [Em]clouds,
+and that [Am7]old north [D7sus4]wind should begin to [G]blow,
+[F#m7]keep your head [B7]together and [Em]call my [B7]name out [Em7]loud now baby
+[Am]Soon I'll be [Bm7]knocking upon your [D7sus4]door. [D7] [Dsus2] [D7]
+
+## Chorus
+Your just [G]call out my [Gmaj7]name, and you [C]know wherever I [Am7]am,
+I'll come [G]running [Gmaj7] to see you again [D7sus4] [D7] [Dsus2] [D7]
+[G]Winter, spring summer or [Gmaj7]fall, [C]all you got to do is [Em]call
+and I'll [C]be there, [Bm7]yeah, [Am7]yeah, yeah. [D7sus4]
+
+## Bridge
+Tell me [F]ain't it good to know that [C]you've got a friend when
+[G]people can be so [Gmaj7]cold. They'll [C]hurt you and [Fmaj7]desert you.
+they'll [Em]take your soul if you [A7]let them.
+But [Dsus4]don't you let them.[D7]
+
+## Chorus
+You just [G]call out my [Gmaj7]name, and you [C]know know wherever I [Am7]am,
+I'll come [G]running running [Gmaj7]yeah yeah yeah to see you again [D7sus4] [D7] [Dsus2] [D7]
+[G]Winter, spring summer or [Gmaj7]fall, now [C]all you got to do is [Em]call
+and I'll [C]be there, [Bm7]yeah, [Am7]yeah, yeah now. [D7sus4]
+You've got a [G]friend. [C]  [D]You've got a [G]friend.
+Ain't it good to [C]know that [D]you've got a [G]friend?
+Ain't it good to know,[C] ain't it good to [D] know
+ain't it [G]good to know yeah, yeah, yeah. [D7sus4]
+You've got a [G]friend.`,
 };
 
 /* ---------------------------------------------------------------
    Persistenz
 --------------------------------------------------------------- */
-// Läuft die App in einem Claude-Artefakt (window.storage vorhanden) oder
-// lokal im normalen Browser? Im lokalen Fall wird stattdessen localStorage genutzt.
-const hasCloudStorage = typeof window !== "undefined" && !!window.storage;
+// // Läuft die App in einem Claude-Artefakt (window.storage vorhanden) oder
+// // lokal im normalen Browser? Im lokalen Fall wird stattdessen localStorage genutzt.
+
+// const hasCloudStorage = typeof window !== "undefined" && !!window.storage;
+// async function loadSongs() {
+//   try {
+//     if (hasCloudStorage) {
+//       const res = await window.storage.get("songbook:songs", false);
+//       if (res && res.value) return JSON.parse(res.value);
+//     } else if (typeof window !== "undefined") {
+//       const raw = window.localStorage.getItem("songbook:songs");
+//       if (raw) return JSON.parse(raw);
+//     }
+//   } catch (e) {
+//     /* noch keine Daten vorhanden */
+//   }
+//   return null;
+// }
+// async function saveSongs(songs) {
+//   try {
+//     if (hasCloudStorage) {
+//       await window.storage.set("songbook:songs", JSON.stringify(songs), false);
+//     } else if (typeof window !== "undefined") {
+//       window.localStorage.setItem("songbook:songs", JSON.stringify(songs));
+//     }
+//   } catch (e) {
+//     console.error("Speichern fehlgeschlagen", e);
+//   }
+// }
+
+const APP_PW_KEY = "songbook:pw";
+const getStoredPassword = () => sessionStorage.getItem(APP_PW_KEY) || "";
+
+async function apiRequest(method, body) {
+  const res = await fetch("/api/songs", {
+    method,
+    headers: { "Content-Type": "application/json", "x-app-password": getStoredPassword() },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (res.status === 401) {
+    sessionStorage.removeItem(APP_PW_KEY);
+    throw new Error("Falsches Passwort");
+  }
+  if (!res.ok) throw new Error("Serverfehler");
+  return res.status === 204 ? null : res.json();
+}
 
 async function loadSongs() {
   try {
-    if (hasCloudStorage) {
-      const res = await window.storage.get("songbook:songs", false);
-      if (res && res.value) return JSON.parse(res.value);
-    } else if (typeof window !== "undefined") {
-      const raw = window.localStorage.getItem("songbook:songs");
-      if (raw) return JSON.parse(raw);
-    }
+    return await apiRequest("GET");
   } catch (e) {
-    /* noch keine Daten vorhanden */
+    console.error("Laden fehlgeschlagen", e);
+    return null;
   }
-  return null;
 }
+
 async function saveSongs(songs) {
   try {
-    if (hasCloudStorage) {
-      await window.storage.set("songbook:songs", JSON.stringify(songs), false);
-    } else if (typeof window !== "undefined") {
-      window.localStorage.setItem("songbook:songs", JSON.stringify(songs));
-    }
+    await apiRequest("PUT", songs);
   } catch (e) {
     console.error("Speichern fehlgeschlagen", e);
   }
@@ -295,6 +359,10 @@ export default function Songbook() {
 
   useEffect(() => {
     (async () => {
+      if (!getStoredPassword()) {
+        const pw = window.prompt("Passwort für die Songbook-App:");
+        if (pw) sessionStorage.setItem(APP_PW_KEY, pw);
+      }
       const loaded = await loadSongs();
       if (loaded && loaded.length) {
         setSongs(loaded);
