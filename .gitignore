@@ -23,5 +23,6 @@ dist-ssr
 *.sln
 *.sw?
 
+# Older files and backups
 files.zip
-
+*.bk

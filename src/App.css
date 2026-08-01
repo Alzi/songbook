@@ -1,5 +1,5 @@
 /*
-Version: 0.6
+Version: 0.7
 */
 @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Literata:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono:wght@400;500;700&display=swap');
 
@@ -21,16 +21,19 @@ html, body, #root {
   --teal: #5a8f8a;
   --border: #35313f;
   --sand: #fdf3d5ed;
+  /* Zum Experimentieren: Faktor für Schrift auf schmalen Bildschirmen.
+     1 = wie Desktop, kleiner = kompakter. Wird unten in der
+     @media-Regel auf .lyric-line/.chord-line angewendet. */
+  --mobile-font-scale: 0.72;
   background: var(--bg);
   color: var(--text);
-  height: 95%;
+  min-height: 95%;
   border-radius: 12px;
   padding: 20px 20px 16px;
   font-family: 'Literata', Georgia, serif;
   display: flex;
   flex-direction: column;
   gap: 16px;
-  overflow: hidden;
 }
 
 .sb-header {
@@ -96,13 +99,6 @@ button {
 }
 
 /* Library */
-.sb-library {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  padding-right: 2px;
-}
-
 .sb-library-top {
   display: flex;
   align-items: flex-end;
@@ -225,10 +221,6 @@ button {
   display: flex;
   flex-direction: column;
   gap: 14px;
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  padding-right: 2px;
 }
 
 .field-row {
@@ -387,6 +379,12 @@ button {
 .scroll-inner {
   padding: 26px 22px 60px;
   font-family: 'JetBrains Mono', monospace;
+}
+
+.song-line-group {
+  /* Wrapper um eine logische Songzeile inkl. ihrer per "|" erzeugten
+     Teilzeilen im Mobile-Modus. Im Desktop-Modus enthält er genau
+     eine .song-line. */
 }
 
 .song-line {
@@ -579,18 +577,12 @@ button {
   color: var(--gold);
 }
 
-/* @media (max-width: 690px) {
-  .lyric-line, .chord-line {
-    font-size:0.8em;
-  }
-} */
-
 @media (max-width: 720px) {
   .speed-group {
     flex-basis: 100%;
     flex-wrap: wrap;
   }
-  
+
   .field-row {
     flex-direction: column;
   }
@@ -598,8 +590,12 @@ button {
   .field-small {
     max-width: none;
   }
-  
-  .lyric-line, .chord-line {
-    font-size:0.6em;
+
+  /* Experimentierfläche: einfach --mobile-font-scale oben in .sb-root
+     anpassen (z. B. 0.8 für größer, 0.6 für kompakter), statt hier
+     feste Werte zu ändern. */
+  .lyric-line,
+  .chord-line {
+    font-size: calc(1em * var(--mobile-font-scale));
   }
 }

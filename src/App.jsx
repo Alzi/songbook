@@ -675,9 +675,10 @@ function Editor({ song, onSave, onCancel }) {
 
       <div className="editor-hint">
         Akkorde direkt vor der Silbe in eckigen Klammern schreiben, z. B. <code>[G]Text</code>. Zeilen, die mit{" "}
-        <code>##</code> beginnen, werden als Abschnitt (z. B. Strophe, Refrain) hervorgehoben. Die
-        Scroll-Verzögerung bestimmt, wie viele Sekunden nach dem Start gewartet wird, bevor der Text zu scrollen
-        beginnt.
+        <code>##</code> beginnen, werden als Abschnitt (z. B. Strophe, Refrain) hervorgehoben. Ein{" "}
+        <code>|</code> in einer Zeile markiert eine Stelle, an der auf schmalen Bildschirmen (Handy) umgebrochen
+        wird — auf größeren Bildschirmen bleibt die Zeile unverändert. Die Scroll-Verzögerung bestimmt, wie viele
+        Sekunden nach dem Start gewartet wird, bevor der Text zu scrollen beginnt.
       </div>
 
       <div className="editor-actions">
@@ -755,9 +756,43 @@ function Importer({ onParsed, onCancel }) {
 }
 
 /* ---------------------------------------------------------------
+   Mobile-Erkennung: rein pixelbasiert über matchMedia, kein
+   manueller Schalter. Bei Bedarf später um ein Override erweiterbar,
+   ohne dass sich an der Grundlogik etwas ändert.
+--------------------------------------------------------------- */
+const MOBILE_BREAKPOINT = 720;
+
+function useIsMobile(breakpoint = MOBILE_BREAKPOINT) {
+  const [isMobile, setIsMobile] = useState(
+    () => typeof window !== "undefined" && window.innerWidth <= breakpoint
+  );
+
+  useEffect(() => {
+    const mq = window.matchMedia(`(max-width: ${breakpoint}px)`);
+    const handler = (e) => setIsMobile(e.matches);
+    handler(mq); // einmal synchron abgleichen, falls sich die Breite vor dem Mount geändert hat
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, [breakpoint]);
+
+  return isMobile;
+}
+
+/* ---------------------------------------------------------------
+   Steuerzeichen im Songtext: "|" markiert eine Stelle, an der im
+   Mobile-Modus umgebrochen werden soll. Im Desktop-Modus wird es
+   einfach entfernt, hat dort also keine sichtbare Wirkung.
+--------------------------------------------------------------- */
+function splitForDisplay(line, isMobile) {
+  if (!isMobile) return [line.replace(/\|/g, "")];
+  return line.split("|");
+}
+
+/* ---------------------------------------------------------------
    Performer: Scroll-Ansicht mit Transponieren & Tempo
 --------------------------------------------------------------- */
 function Performer({ song, onBack, onEdit, onSaveSpeed }) {
+  const isMobile = useIsMobile();
   const [steps, setSteps] = useState(0);
   const [speed, setSpeed] = useState(song.speed ?? 18); // px/sec
   const [playing, setPlaying] = useState(false);
@@ -893,12 +928,19 @@ function Performer({ song, onBack, onEdit, onSaveSpeed }) {
                   </div>
                 );
               }
-              const { lyric, chords } = parseLine(line);
-              const chordLine = buildChordLine(chords, steps);
+              const segments = splitForDisplay(line, isMobile);
               return (
-                <div key={i} className="song-line">
-                  {chordLine.trim() !== "" && <div className="chord-line">{chordLine}</div>}
-                  <div className="lyric-line">{lyric || "\u00A0"}</div>
+                <div key={i} className="song-line-group">
+                  {segments.map((seg, j) => {
+                    const { lyric, chords } = parseLine(seg);
+                    const chordLine = buildChordLine(chords, steps);
+                    return (
+                      <div key={j} className="song-line">
+                        {chordLine.trim() !== "" && <div className="chord-line">{chordLine}</div>}
+                        <div className="lyric-line">{lyric || "\u00A0"}</div>
+                      </div>
+                    );
+                  })}
                 </div>
               );
             })}
