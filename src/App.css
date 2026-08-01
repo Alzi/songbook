@@ -518,9 +518,7 @@ button {
 }
 
 .speed-group {
-  flex: 1;
-  min-width: 140px;
-  gap: 10px;
+  gap: 8px;
 }
 
 .speed-label {
@@ -528,12 +526,6 @@ button {
   color: var(--text-dim);
   text-transform: uppercase;
   letter-spacing: 0.06em;
-}
-
-.speed-group input[type="range"] {
-  flex: 1;
-  accent-color: var(--gold);
-  height: 4px;
 }
 
 .remember-btn {

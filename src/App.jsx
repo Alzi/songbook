@@ -789,19 +789,36 @@ function splitForDisplay(line, isMobile) {
 }
 
 /* ---------------------------------------------------------------
+   Tempo: wie bei der Transponierung nur eine Stufe (…, -1, 0, +1, …)
+   einstellen und speichern; die tatsächliche Scroll-Geschwindigkeit
+   (px/sec) ergibt sich daraus über eine gemeinsame Grundgeschwindigkeit.
+--------------------------------------------------------------- */
+const BASE_SCROLL_SPEED = 18; // px/sec bei Stufe 0 - unsere "gute Grundgeschwindigkeit"
+const SPEED_STEP_PX = 2; // px/sec, um die jede Stufe die Geschwindigkeit ändert
+
+function speedForSteps(speedSteps) {
+  return Math.max(2, BASE_SCROLL_SPEED + speedSteps * SPEED_STEP_PX);
+}
+
+// Wie lange (ms) nach der letzten manuellen Scroll-Bewegung (Maus/Trackpad-
+// Wheel oder Touch) gewartet wird, bevor das Auto-Scrolling weiterläuft.
+const MANUAL_SCROLL_RESUME_DELAY = 1500;
+
+/* ---------------------------------------------------------------
    Performer: Scroll-Ansicht mit Transponieren & Tempo
 --------------------------------------------------------------- */
 function Performer({ song, onBack, onEdit, onSaveSpeed }) {
   const isMobile = useIsMobile();
   const [steps, setSteps] = useState(0);
-  const [speed, setSpeed] = useState(song.speed ?? 18); // px/sec
+  const [speedSteps, setSpeedSteps] = useState(song.speed ?? 0); // Tempo-Stufe, wie bei Transponierung
+  const speed = speedForSteps(speedSteps);
   const [playing, setPlaying] = useState(false);
   const [fontScale, setFontScale] = useState(1);
   const [tempoSaved, setTempoSaved] = useState(false);
   const [countdown, setCountdown] = useState(null); // Sekunden bis Scroll-Start, oder null
 
   function handleSaveTempo() {
-    onSaveSpeed(speed);
+    onSaveSpeed(speedSteps);
     setTempoSaved(true);
     window.clearTimeout(handleSaveTempo._t);
     handleSaveTempo._t = window.setTimeout(() => setTempoSaved(false), 1600);
@@ -812,12 +829,32 @@ function Performer({ song, onBack, onEdit, onSaveSpeed }) {
   const lastTsRef = useRef(null);
   const speedRef = useRef(speed);
   const scrollPosRef = useRef(0); // exakte, nicht gerundete Scroll-Position
+  const manualPauseUntilRef = useRef(0); // Timestamp, bis zu dem manuelles Scrollen respektiert wird
 
   // Aktuelles Tempo immer in einer Ref halten, damit der Scroll-Loop
   // unten sie live lesen kann, ohne dass der Effekt neu gestartet werden muss.
   useEffect(() => {
     speedRef.current = speed;
   }, [speed]);
+
+  // Manuelles Scrollen (Maus-Wheel, Trackpad, Touch-Swipe) erkennen: setzt nur
+  // einen "bis wann pausieren" Zeitstempel, der Scroll-Loop selbst greift das
+  // unten in step() ab - so bleibt die exakte Position jederzeit synchron.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return undefined;
+    function markManualScroll() {
+      manualPauseUntilRef.current = Date.now() + MANUAL_SCROLL_RESUME_DELAY;
+    }
+    el.addEventListener("wheel", markManualScroll, { passive: true });
+    el.addEventListener("touchstart", markManualScroll, { passive: true });
+    el.addEventListener("touchmove", markManualScroll, { passive: true });
+    return () => {
+      el.removeEventListener("wheel", markManualScroll);
+      el.removeEventListener("touchstart", markManualScroll);
+      el.removeEventListener("touchmove", markManualScroll);
+    };
+  }, []);
 
   useEffect(() => {
     if (!playing) {
@@ -840,14 +877,21 @@ function Performer({ song, onBack, onEdit, onSaveSpeed }) {
 
       function step(ts) {
         if (lastTsRef.current != null && scrollRef.current) {
-          const dt = (ts - lastTsRef.current) / 1000;
           const el = scrollRef.current;
-          // Nachkommastellen selbst mitführen statt sie über scrollTop
-          // (das der Browser auf ganze Pixel rundet) verloren gehen zu lassen.
-          scrollPosRef.current += speedRef.current * dt;
-          el.scrollTop = scrollPosRef.current;
-          if (el.scrollTop + el.clientHeight >= el.scrollHeight - 1) {
-            setPlaying(false);
+          if (Date.now() < manualPauseUntilRef.current) {
+            // Nutzer scrollt gerade selbst (Wheel/Touch): nicht überschreiben,
+            // nur unsere Position synchron mit der tatsächlichen Scroll-Position
+            // halten, damit es beim Weiterlaufen keinen Sprung gibt.
+            scrollPosRef.current = el.scrollTop;
+          } else {
+            const dt = (ts - lastTsRef.current) / 1000;
+            // Nachkommastellen selbst mitführen statt sie über scrollTop
+            // (das der Browser auf ganze Pixel rundet) verloren gehen zu lassen.
+            scrollPosRef.current += speedRef.current * dt;
+            el.scrollTop = scrollPosRef.current;
+            if (el.scrollTop + el.clientHeight >= el.scrollHeight - 1) {
+              setPlaying(false);
+            }
           }
         }
         lastTsRef.current = ts;
@@ -980,17 +1024,19 @@ function Performer({ song, onBack, onEdit, onSaveSpeed }) {
 
         <div className="pedal-group speed-group">
           <span className="speed-label">Tempo</span>
-          <input
-            type="range"
-            min={4}
-            max={100}
-            value={speed}
-            onChange={(e) => setSpeed(Number(e.target.value))}
-          />
+          <button className="pedal-small" onClick={() => setSpeedSteps((s) => s - 1)} title="Langsamer">
+            <ChevronDown size={16} />
+          </button>
+          <div className={"led" + (speedSteps !== 0 ? " led-on" : "")}>
+            {speedSteps > 0 ? `+${speedSteps}` : speedSteps}
+          </div>
+          <button className="pedal-small" onClick={() => setSpeedSteps((s) => s + 1)} title="Schneller">
+            <ChevronUp size={16} />
+          </button>
           <button
             className={"remember-btn" + (tempoSaved ? " remember-btn-done" : "")}
             onClick={handleSaveTempo}
-            title="Aktuelles Tempo für diesen Song merken"
+            title="Aktuelle Tempo-Stufe für diesen Song merken"
           >
             {tempoSaved ? "Gemerkt ✓" : "Tempo merken"}
           </button>
