@@ -24,7 +24,7 @@ html, body, #root {
   /* Zum Experimentieren: Faktor für Schrift auf schmalen Bildschirmen.
      1 = wie Desktop, kleiner = kompakter. Wird unten in der
      @media-Regel auf .lyric-line/.chord-line angewendet. */
-  --mobile-font-scale: 0.72;
+  --mobile-font-scale: 1.3;
   background: var(--bg);
   color: var(--text);
   min-height: 95%;
@@ -381,12 +381,6 @@ button {
   font-family: 'JetBrains Mono', monospace;
 }
 
-.song-line-group {
-  /* Wrapper um eine logische Songzeile inkl. ihrer per "|" erzeugten
-     Teilzeilen im Mobile-Modus. Im Desktop-Modus enthält er genau
-     eine .song-line. */
-}
-
 .song-line {
   margin-bottom: 10px;
   white-space: pre;
@@ -597,5 +591,6 @@ button {
   .lyric-line,
   .chord-line {
     font-size: calc(1em * var(--mobile-font-scale));
+    line-height: calc(1em * var(--mobile-font-scale));
   }
 }
