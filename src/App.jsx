@@ -294,7 +294,7 @@ You've got a [G]friend.`,
    neu einfügen".
 --------------------------------------------------------------- */
 async function loadSongs() {
-  const { data, error } = await supabase.from("songs").select("*").order("created_at");
+  const { data, error } = await supabase.from("songs").select("*").order("title");
   if (error) {
     console.error("Laden fehlgeschlagen", error);
     return null;
@@ -330,6 +330,7 @@ export default function Songbook() {
   const [view, setView] = useState("library"); // library | edit | perform | import
   const [currentId, setCurrentId] = useState(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+  const [performChromeHidden, setPerformChromeHidden] = useState(false);
   const [importDraft, setImportDraft] = useState(null); // frisch importierter, noch nicht gespeicherter Song
 
   // Login-Status prüfen & auf Änderungen (Login/Logout) reagieren
@@ -381,12 +382,14 @@ export default function Songbook() {
   }
   function openPerform(id) {
     setCurrentId(id);
+    setPerformChromeHidden(false);
     setView("perform");
   }
   function backToLibrary() {
     setView("library");
     setCurrentId(null);
     setImportDraft(null);
+    setPerformChromeHidden(false);
   }
   async function handleSave(song) {
     try {
@@ -442,7 +445,7 @@ export default function Songbook() {
   if (session === null) {
     return (
       <div className="sb-root">
-        <header className="sb-header">
+        <header className={"sb-header" + (view === "perform" && performChromeHidden ? " sb-header-hidden" : "")}>
           <div className="sb-brand">
             <Music size={20} strokeWidth={2} />
             <span>Songbook</span>
@@ -496,6 +499,7 @@ export default function Songbook() {
           onBack={backToLibrary}
           onEdit={() => openEdit(currentSong.id)}
           onSaveSpeed={(spd) => updateSongMeta(currentSong.id, { speed: spd })}
+          onChromeHiddenChange={setPerformChromeHidden}
         />
       )}
     </div>
@@ -803,11 +807,13 @@ function speedForSteps(speedSteps) {
 // Wie lange (ms) nach der letzten manuellen Scroll-Bewegung (Maus/Trackpad-
 // Wheel oder Touch) gewartet wird, bevor das Auto-Scrolling weiterläuft.
 const MANUAL_SCROLL_RESUME_DELAY = 1500;
+// Wie lange (ms) nach Start des Abspielens, bis Header/Pedalboard ausgeblendet werden
+const HIDE_CHROME_DELAY = 1000;
 
 /* ---------------------------------------------------------------
    Performer: Scroll-Ansicht mit Transponieren & Tempo
 --------------------------------------------------------------- */
-function Performer({ song, onBack, onEdit, onSaveSpeed }) {
+function Performer({ song, onBack, onEdit, onSaveSpeed, onChromeHiddenChange }) {
   const isMobile = useIsMobile();
   const [steps, setSteps] = useState(0);
   const [speedSteps, setSpeedSteps] = useState(song.speed ?? 0); // Tempo-Stufe, wie bei Transponierung
@@ -817,6 +823,36 @@ function Performer({ song, onBack, onEdit, onSaveSpeed }) {
   const [tempoSaved, setTempoSaved] = useState(false);
   const [countdown, setCountdown] = useState(null); // Sekunden bis Scroll-Start, oder null
 
+  const [chromeHidden, setChromeHidden] = useState(false);
+  const hideChromeTimeoutRef = useRef(null);
+
+  function showChrome() {
+    setChromeHidden(false);
+    if (hideChromeTimeoutRef.current) window.clearTimeout(hideChromeTimeoutRef.current);
+  }
+
+  function scheduleHideChrome(delay = HIDE_CHROME_DELAY) {
+    if (hideChromeTimeoutRef.current) window.clearTimeout(hideChromeTimeoutRef.current);
+    hideChromeTimeoutRef.current = window.setTimeout(() => setChromeHidden(true), delay);
+  }
+
+  // Beim Start/Stopp des Abspielens ein-/ausblenden
+  useEffect(() => {
+    if (!playing) {
+      showChrome();
+      return undefined;
+    }
+    scheduleHideChrome();
+    return () => {
+      if (hideChromeTimeoutRef.current) window.clearTimeout(hideChromeTimeoutRef.current);
+    };
+  }, [playing]);
+
+  // Sichtbarkeit nach oben an Songbook melden (für .sb-header)
+  useEffect(() => {
+    onChromeHiddenChange?.(chromeHidden);
+  }, [chromeHidden, onChromeHiddenChange]);
+  
   function handleSaveTempo() {
     onSaveSpeed(speedSteps);
     setTempoSaved(true);
@@ -845,7 +881,10 @@ function Performer({ song, onBack, onEdit, onSaveSpeed }) {
     if (!el) return undefined;
     function markManualScroll() {
       manualPauseUntilRef.current = Date.now() + MANUAL_SCROLL_RESUME_DELAY;
+      showChrome();
+      scheduleHideChrome(MANUAL_SCROLL_RESUME_DELAY + HIDE_CHROME_DELAY);
     }
+
     el.addEventListener("wheel", markManualScroll, { passive: true });
     el.addEventListener("touchstart", markManualScroll, { passive: true });
     el.addEventListener("touchmove", markManualScroll, { passive: true });
@@ -993,7 +1032,7 @@ function Performer({ song, onBack, onEdit, onSaveSpeed }) {
         </div>
       </div>
 
-      <div className="pedalboard">
+      <div className={"pedalboard" + (chromeHidden ? " pedalboard-hidden" : "")}>
         <div className="pedal-group">
           <button className="pedal-small" onClick={() => setFontScale((f) => Math.max(0.75, f - 0.1))}>
             A−

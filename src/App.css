@@ -38,10 +38,22 @@ html, body, #root {
 }
 
 .sb-header {
+  transition: opacity 0.3s ease, transform 0.3s ease, max-height 0.3s ease, margin-bottom 0.3s ease;
+  max-height: 60px;
+  overflow: hidden;
   display: flex;
   align-items: center;
   justify-content:center;
 }
+
+.sb-header-hidden {
+  opacity: 0;
+  transform: translateY(-100%);
+  max-height: 0;
+  margin-bottom: -16px; /* frisst den flex-gap von .sb-root mit weg */
+  pointer-events: none;
+}
+
 /*  */
 .sb-brand {
   display: flex;
@@ -419,6 +431,8 @@ button {
 
 /* Pedalboard */
 .pedalboard {
+  transition: opacity 0.3s ease, transform 0.3s ease, max-height 0.3s ease, margin-bottom 0.3s ease, padding 0.3s ease;
+  max-height: 120px;
   display: flex;
   align-items: center;
   gap: 14px;
@@ -427,6 +441,17 @@ button {
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 10px 16px;
+}
+
+.pedalboard-hidden {
+  opacity: 0;
+  transform: translateY(100%);
+  max-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  margin-bottom: -16px;
+  pointer-events: none;
+  overflow: hidden;
 }
 
 .pedal-group {
