@@ -445,7 +445,7 @@ export default function Songbook() {
   if (session === null) {
     return (
       <div className="sb-root">
-        <header className={"sb-header" + (view === "perform" && performChromeHidden ? " sb-header-hidden" : "")}>
+        <header className="sb-header">
           <div className="sb-brand">
             <Music size={20} strokeWidth={2} />
             <span>Songbook</span>
@@ -458,7 +458,7 @@ export default function Songbook() {
 
   return (
     <div className="sb-root">
-      <header className="sb-header">
+      <header className={"sb-header" + (view === "perform" && performChromeHidden ? " sb-header-hidden" : "")}>
         <div className="sb-brand">
           <Music size={20} strokeWidth={2} />
           <span>Songbook</span>
