@@ -303,6 +303,11 @@ button {
   font-size: 0.8rem;
 }
 
+.editor-tools {
+  display: flex;
+  justify-content: flex-start;
+}
+
 .import-error {
   color: #e88b7d;
   font-size: 0.85rem;
@@ -588,6 +593,8 @@ button {
 .back-link:hover {
   color: var(--gold);
 }
+
+
 
 @media (max-width: 720px) {
   .speed-group {

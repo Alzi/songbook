@@ -4,7 +4,7 @@ Version: 0.8
 import "./App.css";
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { createClient } from "@supabase/supabase-js";
-import { Music, Plus, ArrowLeft, Pencil, Trash2, Play, Pause, ChevronUp, ChevronDown, RotateCcw, Upload, LogOut } from "lucide-react";
+import { Music, Plus, ArrowLeft, Pencil, Trash2, Play, Pause, ChevronUp, ChevronDown, RotateCcw, Upload, LogOut, WrapText } from "lucide-react";
 
 /* ---------------------------------------------------------------
    Supabase-Client (Browser, anon key + RLS statt service_role)
@@ -83,6 +83,55 @@ function buildChordLine(chords, steps) {
 function transposeKey(key, steps) {
   if (!key) return key;
   return transposeChord(key.trim(), steps);
+}
+
+/* ---------------------------------------------------------------
+   Automatische Umbrüche: fügt "|" vor dem Wort ein, das die
+   maximale Zeilenbreite überschreiten würde. Gemessen wird die
+   tatsächlich angezeigte Breite (Text ODER Akkordzeile, je nachdem,
+   was breiter ist). Bereits vorhandene "|" bleiben erhalten; jedes
+   Teilstück dazwischen wird einzeln umgebrochen. Dadurch ist die
+   Funktion idempotent: ein zweiter Durchlauf ändert nichts mehr.
+--------------------------------------------------------------- */
+const MAX_LINE_CHARS = 30;
+
+function displayWidth(seg) {
+  const { lyric, chords } = parseLine(seg);
+  return Math.max(lyric.length, buildChordLine(chords, 0).length);
+}
+
+function wrapSegment(seg, max = MAX_LINE_CHARS) {
+  const lead = seg.match(/^\s*/)[0];
+  // "Wort" = alles bis zum nächsten Leerzeichen; [Akkorde] bleiben unteilbar
+  const tokens = seg.slice(lead.length).match(/(?:\[[^\]]*\]|\S)+\s*/g) || [];
+  const parts = [];
+  let current = lead;
+  for (const token of tokens) {
+    const candidate = current + token;
+    if (current.trim() !== "" && displayWidth(candidate.trimEnd()) > max) {
+      parts.push(current);
+      current = token;
+    } else {
+      current = candidate;
+    }
+  }
+  parts.push(current);
+  return parts.join("|");
+}
+
+function wrapLine(line, max = MAX_LINE_CHARS) {
+  if (line.trim() === "" || line.trim().startsWith("##")) return line;
+  return line
+    .split("|")
+    .map((seg) => wrapSegment(seg, max))
+    .join("|");
+}
+
+function insertLineBreaks(body, max = MAX_LINE_CHARS) {
+  return body
+    .split("\n")
+    .map((l) => wrapLine(l, max))
+    .join("\n");
 }
 
 /* ---------------------------------------------------------------
@@ -228,7 +277,7 @@ function parseImportedChordText(raw) {
     artist,
     key,
     scrollDelay: 0,
-    body: out.join("\n"),
+    body: insertLineBreaks(out.join("\n")),
   };
 }
 
@@ -677,11 +726,23 @@ function Editor({ song, onSave, onCancel }) {
         />
       </label>
 
+      <div className="editor-tools">
+        <button
+          type="button"
+          className="btn-ghost"
+          onClick={() => setBody((b) => insertLineBreaks(b))}
+          title={`Fügt „|" ein, wo eine Zeile länger als ${MAX_LINE_CHARS} Zeichen würde`}
+        >
+          <WrapText size={16} /> Umbruch
+        </button>
+      </div>
+
       <div className="editor-hint">
         Akkorde direkt vor der Silbe in eckigen Klammern schreiben, z. B. <code>[G]Text</code>. Zeilen, die mit{" "}
         <code>##</code> beginnen, werden als Abschnitt (z. B. Strophe, Refrain) hervorgehoben. Ein{" "}
         <code>|</code> in einer Zeile markiert eine Stelle, an der auf schmalen Bildschirmen (Handy) umgebrochen
-        wird — auf größeren Bildschirmen bleibt die Zeile unverändert. Die Scroll-Verzögerung bestimmt, wie viele
+        wird — auf größeren Bildschirmen bleibt die Zeile unverändert. Mit dem Button &quot;Umbruch&quot; werden 
+        automatisch Umbrüche nach spätestens 30 Zeichen eingefügt. Die Scroll-Verzögerung bestimmt, wie viele
         Sekunden nach dem Start gewartet wird, bevor der Text zu scrollen beginnt.
       </div>
 
