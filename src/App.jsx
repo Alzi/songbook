@@ -4,7 +4,7 @@ Version: 0.8
 import "./App.css";
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { createClient } from "@supabase/supabase-js";
-import { Music, Plus, ArrowLeft, Pencil, Trash2, Play, Pause, ChevronUp, ChevronDown, RotateCcw, Upload, LogOut, WrapText } from "lucide-react";
+import { Music, Plus, ArrowLeft, Pencil, Trash2, Play, Pause, ChevronUp, ChevronDown, RotateCcw, Upload, LogOut, WrapText, Eraser } from "lucide-react";
 
 /* ---------------------------------------------------------------
    Supabase-Client (Browser, anon key + RLS statt service_role)
@@ -132,6 +132,10 @@ function insertLineBreaks(body, max = MAX_LINE_CHARS) {
     .split("\n")
     .map((l) => wrapLine(l, max))
     .join("\n");
+}
+
+function removeLineBreaks(body) {
+  return body.replace(/\|/g, "");
 }
 
 /* ---------------------------------------------------------------
@@ -734,6 +738,14 @@ function Editor({ song, onSave, onCancel }) {
           title={`Fügt „|" ein, wo eine Zeile länger als ${MAX_LINE_CHARS} Zeichen würde`}
         >
           <WrapText size={16} /> Umbruch
+        </button>
+        <button
+          type="button"
+          className="btn-ghost"
+          onClick={() => setBody((b) => removeLineBreaks(b))}
+          title={`Entfernt alle „|"-Umbrüche aus dem Text`}
+        >
+          <Eraser size={16} /> Umbrüche entfernen
         </button>
       </div>
 

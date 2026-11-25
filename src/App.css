@@ -306,6 +306,8 @@ button {
 .editor-tools {
   display: flex;
   justify-content: flex-start;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .import-error {
